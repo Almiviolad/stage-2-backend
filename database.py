@@ -7,7 +7,7 @@ import os
 load_dotenv()
 
 # Fetch the connection URL
-DATABASE_URL = ""
+DATABASE_URL = "sqlite:///./app.db"
 
 Base = declarative_base()
 
