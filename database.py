@@ -7,7 +7,7 @@ import os
 load_dotenv()
 
 # Fetch the connection URL
-DATABASE_URL = os.getenv("DB_CONNECTION_URL")
+DATABASE_URL = "mysql+mysqlconnector://user_e0c1a45d:68999534a54a6e21eafaf38c25211a1d@db.pxxl.pro:46995/db_a75853a8"
 
 Base = declarative_base()
 
