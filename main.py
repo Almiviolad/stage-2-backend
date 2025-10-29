@@ -1,10 +1,150 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session
+from sqlalchemy import func
+from typing import List, Optional
+from datetime import datetime
+import httpx
+import os
+from models import Country, StatusResponse # Pydantic models
+from database import get_db, CountryDB, create_db_tables # SQLAlchemy setup
+from helpers import (
+    fetch_external_data, 
+    process_and_update, 
+    #generate_summary_image, 
+    IMAGE_PATH
+)
 
-app = FastAPI()
 
-@app.get('/status')
-async def get_status():
-    return({"status": "Server running"})
+app = FastAPI(
+    title="Country and Exchange API",
+    version=1.0)
+
+@app.on_event("startup")
+def on_startup():
+    create_db_tables()
+
+HTTP_CLIENT = httpx.AsyncClient()
+
+@app.post("/countries/refresh", status_code=status.HTTP_201_CREATED)
+async def refresh_countries(db: Session = Depends(get_db)):
+    """Fetches country data and exchange rates, processes, and caches/updates them."""
+    
+    # Fetch data from external APIs (handles 503 error)
+    countries_data, rates_data = await fetch_external_data(HTTP_CLIENT)
+
+    # Process data, calculate GDP, and perform UPSERT (Update/Insert)
+    total_cached = process_and_update(db, countries_data, rates_data)
+
+    # Retrieve the latest timestamp for the status and image
+    max_timestamp = db.query(func.max(CountryDB.last_refreshed_at)).scalar()
+    #  Generate the Summary Image
+    """    if max_timestamp:
+        generate_summary_image(db, total_cached, max_timestamp) """
+    return {"message": f"Successfully refreshed and cached {total_cached} countries."}
+
+
+@app.get("/countries/image")
+def get_summary_image():
+    """Serve the generated summary image."""
+    
+    if not os.path.exists(IMAGE_PATH):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "Summary image not found"}
+        )
+        
+    # FileResponse streams the file efficiently and sets Content-Type: image/png
+    return FileResponse(IMAGE_PATH, media_type="image/png")
+
+
+@app.get("/countries", response_model=List[Country])
+async def get_countries(
+        db: Session = Depends(get_db),
+        region: Optional[str] = None,
+        currency: Optional[str] = None,
+        sort: Optional[str] = None):
+
+    query = db.query(CountryDB)
+    if region:
+        query = query.filter(func.lower(CountryDB.region) == region.lower())
+    if currency:
+        query = query.filter(func.lower(CountryDB.currency_code) == currency.lower())
+    if sort:
+        sort_arr = sort.lower().split('_')
+        q_column = sort_arr[0]
+        order = sort_arr[-1]
+        if q_column == 'gdp':
+            column = CountryDB.estimated_gdp
+        elif q_column == 'population':
+            column = CountryDB.population
+        else:
+            column = CountryDB.name
+        if order == 'desc':
+            query = query.order_by(column.desc())
+        else:
+            query = query.order_by(column.asc())
+    countries = query.all()
+    return countries
+
+
+@app.get("/countries/{name}", response_model=Country)
+def get_country(name: str, db: Session = Depends(get_db)):
+    """Get one country by name (case-insensitive)."""
+    
+    # Perform a case-insensitive search
+    country = db.query(CountryDB).filter(func.lower(CountryDB.name) == name.lower()).first()
+    
+    # Error Handling: 404 Not Found
+    if country is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail={"error": "Country not found"}
+        )
+        
+    return country
+
+
+@app.delete("/countries/{name}", status_code=status.HTTP_200_OK)
+def delete_country(name: str, db: Session = Depends(get_db)):
+    """Delete a country record by name (case-insensitive)."""
+    
+    # 1. Find the country
+    country = db.query(CountryDB).filter(func.lower(CountryDB.name) == name.lower()).first()
+    
+    # Error Handling: 404 Not Found
+    if country is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail={"error": "Country not found"}
+        )
+        
+    # 2. Delete and Commit
+    db.delete(country)
+    db.commit()
+    
+    return {"message": f"Country '{country.name}' deleted successfully"}
+    
+
+@app.get("/status", response_model=StatusResponse)
+def get_status(db: Session = Depends(get_db)):
+    """Show total countries and last refresh timestamp."""
+    
+    # 1. Get Total Count
+    total_countries = db.query(CountryDB).count()
+    
+    # 2. Get Latest Timestamp
+    # Find the maximum (most recent) value from the column
+    last_refreshed_at = db.query(func.max(CountryDB.last_refreshed_at)).scalar()
+    
+    # Check if the database is empty
+    if total_countries == 0:
+         last_refreshed_at = None
+
+    return {
+        "total_countries": total_countries,
+        "last_refreshed_at": last_refreshed_at
+    }
 
 if __name__ == "__main__":
     import uvicorn
