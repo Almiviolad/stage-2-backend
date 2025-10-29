@@ -20,9 +20,9 @@ app = FastAPI(
     title="Country and Exchange API",
     version=1.0)
 
-@app.on_event("startup")
+"""@app.on_event("startup")
 def on_startup():
-    create_db_tables()
+    create_db_tables()"""
 
 HTTP_CLIENT = httpx.AsyncClient()
 
