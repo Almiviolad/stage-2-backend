@@ -1,1 +1,1 @@
-DB_CONNECTION_URL = sqlite:///./app.db
+DB_CONNECTION_URL="mysql+mysqlconnector://root:OzImpedBPgeZirEbNaXImizOWwiPCczw@tramway.proxy.rlwy.net:49268/railway"

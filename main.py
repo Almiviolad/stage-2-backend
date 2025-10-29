@@ -11,7 +11,7 @@ from database import get_db, CountryDB, create_db_tables # SQLAlchemy setup
 from helpers import (
     fetch_external_data, 
     process_and_update, 
-    #generate_summary_image, 
+    generate_summary_image, 
     IMAGE_PATH
 )
 
@@ -39,8 +39,8 @@ async def refresh_countries(db: Session = Depends(get_db)):
     # Retrieve the latest timestamp for the status and image
     max_timestamp = db.query(func.max(CountryDB.last_refreshed_at)).scalar()
     #  Generate the Summary Image
-    """    if max_timestamp:
-        generate_summary_image(db, total_cached, max_timestamp) """
+    if max_timestamp:
+        generate_summary_image(db, total_cached, max_timestamp) 
     return {"message": f"Successfully refreshed and cached {total_cached} countries."}
 
 

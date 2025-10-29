@@ -8,7 +8,7 @@ from datetime import datetime
 import httpx
 import random
 import os
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from database import CountryDB
 import asyncio
 
@@ -128,8 +128,8 @@ def process_and_update(db: Session, countries_data: list, rates_data: dict) -> i
 
 
 
-"""def generate_summary_image(db: Session, total_countries: int, last_refreshed_at: datetime):
-    Generates and saves the summary image to disk
+def generate_summary_image(db: Session, total_countries: int, last_refreshed_at: datetime):
+    """Generates and saves the summary image to disk"""
     
     # Query Top 5 GDP (sorted descending)
     top_countries = db.query(CountryDB.name, CountryDB.estimated_gdp)\
@@ -176,4 +176,3 @@ def process_and_update(db: Session, countries_data: list, rates_data: dict) -> i
     fig.savefig(IMAGE_PATH, dpi=300, bbox_inches='tight')
     plt.close(fig)
     print(f"✅ Summary image successfully saved as: {IMAGE_PATH}")
-"""
