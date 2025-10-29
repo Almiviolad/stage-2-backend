@@ -146,6 +146,5 @@ def get_status(db: Session = Depends(get_db)):
         "last_refreshed_at": last_refreshed_at
     }
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0",reload=True, port=8000)
+import uvicorn
+uvicorn.run("main:app", host="0.0.0.0",reload=True, port=8000)
